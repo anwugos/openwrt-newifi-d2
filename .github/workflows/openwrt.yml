@@ -3,12 +3,15 @@ name: Build OpenWrt
 on:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Free disk space
         run: |
@@ -28,14 +31,6 @@ jobs:
           cd source
           git checkout openwrt-24.10
 
-      - name: Add feeds
-        run: |
-          cd source
-             echo 'src-git passwall_packages https://github.com/anwugos/openwrt-passwall.git' >> feeds.conf.default
-             echo 'src-git passwall_luci https://github.com/OpenWrt-Passwall/openwrt-passwall.git' >> feeds.conf.default
-             echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git' >> feeds.conf.default
-             echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config.git' >> feeds.conf.default
-
       - name: Update feeds
         run: |
           cd source
@@ -51,7 +46,7 @@ jobs:
       - name: Download
         run: |
           cd source
-          make download -j8
+          make download -j8 || make download -j1 V=s
 
       - name: Build
         run: |
