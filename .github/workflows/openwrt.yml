@@ -1,34 +1,45 @@
-name: Build OpenWrt
+name: Build OpenWrt (newifi-d2)
 
 on:
   workflow_dispatch:
+
+env:
+  OPENWRT_REPO: https://github.com/openwrt/openwrt.git
+  OPENWRT_BRANCH: openwrt-24.10
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
           df -h
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential clang flex bison g++ gawk gcc-multilib gettext \
-          git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
+          sudo apt install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib gettext \
+            git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev \
+            file wget curl ca-certificates ccache
 
-      - name: Clone OpenWrt
+      - name: Clone OpenWrt source
         run: |
-          git clone https://github.com/openwrt/openwrt.git source
+          git clone --depth=1 $OPENWRT_REPO source
           cd source
-          git checkout openwrt-24.10
+          git fetch --depth=1 origin $OPENWRT_BRANCH
+          git checkout $OPENWRT_BRANCH
+          echo "Source branch: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Commit: $(git rev-parse --short HEAD)"
 
-      - name: Update feeds
+      - name: Update & install feeds
         run: |
           cd source
           ./scripts/feeds update -a
@@ -38,25 +49,44 @@ jobs:
         run: |
           cd source
 
-          # Argon theme
-          rm -rf package/luci-theme-argon
-          rm -rf package/luci-app-argon-config
-          git clone https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
-          git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
+          # Argon
+          rm -rf package/luci-theme-argon package/luci-app-argon-config
+          git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+          git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 
-          # Passwall
-          rm -rf package/openwrt-passwall
-          git clone https://github.com/xiaorouji/openwrt-passwall.git package/openwrt-passwall
+          # Passwall + dependencies
+          rm -rf package/passwall package/passwall-packages
+          git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall.git package/passwall
+          git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall-packages.git package/passwall-packages
+
+      - name: Apply custom passwall subscribe.lua (optional)
+        run: |
+          cd source
+          # 你把改好的 subscribe.lua 放在仓库 custom/subscribe.lua 时自动覆盖
+          if [ -f ../custom/subscribe.lua ]; then
+            if [ -f package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua ]; then
+              cp -f ../custom/subscribe.lua package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua
+              echo "[OK] custom subscribe.lua applied"
+            else
+              echo "[WARN] target subscribe.lua not found in package/passwall"
+            fi
+          else
+            echo "[INFO] custom/subscribe.lua not found, skip"
+          fi
 
       - name: Load config
         run: |
+          test -f configs/newifi.config || (echo "configs/newifi.config not found" && exit 1)
           cp configs/newifi.config source/.config
+          # 可选：自定义 files 目录（会打进固件）
           if [ -d files ]; then cp -r files source/files; fi
 
       - name: Make defconfig
         run: |
           cd source
           make defconfig
+          # 可选检查：确认机型目标
+          grep -E "CONFIG_TARGET_ramips|CONFIG_TARGET_ramips_mt7621|d-team_newifi-d2" .config || true
 
       - name: Download packages
         run: |
@@ -66,10 +96,19 @@ jobs:
       - name: Build firmware
         run: |
           cd source
-          make -j$(nproc) || make -j1 V=s
+          make -j"$(nproc)" || make -j1 V=s
 
-      - name: Upload firmware
+      - name: Prepare artifact
+        run: |
+          mkdir -p artifact
+          cp -r source/bin/targets artifact/targets
+          # 额外保留关键信息，便于回溯
+          cp source/.config artifact/build.config || true
+          echo "done"
+
+      - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
           name: newifi-d2-openwrt
-          path: source/bin/targets/
+          path: artifact
+          if-no-files-found: error
