@@ -28,22 +28,25 @@ jobs:
           cd source
           git checkout openwrt-24.10
 
-      - name: Add third-party packages
-        run: |
-          cd source
-
-          # Argon
-          git clone https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
-          git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
-
-          # Passwall
-          git clone https://github.com/xiaorouji/openwrt-passwall.git package/openwrt-passwall
-
       - name: Update feeds
         run: |
           cd source
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+
+      - name: Add third-party packages
+        run: |
+          cd source
+
+          # Argon theme
+          rm -rf package/luci-theme-argon
+          rm -rf package/luci-app-argon-config
+          git clone https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+          git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
+
+          # Passwall
+          rm -rf package/openwrt-passwall
+          git clone https://github.com/xiaorouji/openwrt-passwall.git package/openwrt-passwall
 
       - name: Load config
         run: |
