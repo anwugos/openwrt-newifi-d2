@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# 开启无线
+uci set wireless.radio0.disabled='0'
+uci set wireless.radio1.disabled='0'
+
+# 2.4G
+uci set wireless.default_radio0.ssid='OPR_2.4GS'
+uci set wireless.default_radio0.encryption='psk2'
+uci set wireless.default_radio0.key='wm541013'
+
+# 5G
+uci set wireless.default_radio1.ssid='OPR_5GS'
+uci set wireless.default_radio1.encryption='psk2'
+uci set wireless.default_radio1.key='wm541013'
+
+uci commit wireless
+
+exit 0
