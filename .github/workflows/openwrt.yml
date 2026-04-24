@@ -35,8 +35,15 @@ jobs:
       - name: Add custom feeds
         run: |
           cd source
-          echo 'src-git passwall_packages https://github.com/anwugos/openwrt-passwall.git;main' >> feeds.conf.default
-          echo 'src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main' >> feeds.conf.default
+
+
+          # 👉 官方基础依赖（必须）
+          echo 'src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main' >> feeds.conf.default
+
+          # 👉 你的仓库（覆盖 luci）
+          echo 'src-git passwall_luci https://github.com/anwugos/openwrt-passwall.git;main' >> feeds.conf.default
+
+          # 👉 Argon
           echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git' >> feeds.conf.default
           echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config.git' >> feeds.conf.default
 
