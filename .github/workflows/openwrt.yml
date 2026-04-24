@@ -68,7 +68,7 @@ jobs:
       - name: Fix dnsmasq conflict
         run: |
           cd source
-
+          
           sed -i '/CONFIG_PACKAGE_dnsmasq/d' .config
           sed -i '/CONFIG_PACKAGE_dnsmasq-full/d' .config
 
@@ -79,6 +79,22 @@ jobs:
 
           echo "===== dnsmasq check ====="
           grep -E "CONFIG_PACKAGE_dnsmasq|CONFIG_PACKAGE_dnsmasq-full" .config || true
+
+      - name: Add Chinese language
+        run: |
+          cd source
+
+          # 中文界面
+          echo "CONFIG_PACKAGE_luci-i18n-base-zh-cn=y" >> .config
+
+          # 插件中文
+          echo "CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=y" >> .config
+          echo "CONFIG_PACKAGE_luci-i18n-argon-config-zh-cn=y" >> .config
+
+          make defconfig
+
+          echo "===== Language check ====="
+          grep zh-cn .config || true
 
       - name: Download packages
         run: |
