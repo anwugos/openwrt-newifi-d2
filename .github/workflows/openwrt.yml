@@ -1,109 +1,115 @@
 name: Build OpenWrt (newifi-d2)
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  OPENWRT_REPO: https://github.com/openwrt/openwrt.git
-  OPENWRT_BRANCH: openwrt-24.10
+FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+OPENWRT_REPO: https://github.com/openwrt/openwrt.git
+OPENWRT_BRANCH: openwrt-24.10
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+build:
+runs-on: ubuntu-22.04
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+```
+steps:
+  - name: Checkout
+    uses: actions/checkout@v5
 
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/lib/android
-          df -h
+  - name: Free disk space
+    run: |
+      sudo rm -rf /usr/share/dotnet
+      sudo rm -rf /opt/ghc
+      sudo rm -rf /usr/local/lib/android
+      df -h
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            build-essential clang flex bison g++ gawk gcc-multilib gettext \
-            git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev \
-            file wget curl ca-certificates ccache
+  - name: Install dependencies
+    run: |
+      sudo apt update
+      sudo apt install -y \
+        build-essential clang flex bison g++ gawk gcc-multilib gettext \
+        git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev \
+        file wget curl ca-certificates ccache
 
-      - name: Clone OpenWrt source
-        run: |
-          git clone --depth=1 --branch "$OPENWRT_BRANCH" "$OPENWRT_REPO" source
-          cd source
-          echo "Source branch: $(git rev-parse --abbrev-ref HEAD)"
-          echo "Commit: $(git rev-parse --short HEAD)"
+  - name: Clone OpenWrt source
+    run: |
+      git clone --depth=1 --branch "$OPENWRT_BRANCH" "$OPENWRT_REPO" source
+      cd source
+      echo "Source branch: $(git rev-parse --abbrev-ref HEAD)"
+      echo "Commit: $(git rev-parse --short HEAD)"
 
-      - name: Update & install feeds
-        run: |
-          cd source
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+  - name: Update & install feeds
+    run: |
+      cd source
+      ./scripts/feeds update -a
+      ./scripts/feeds install -a
 
-      - name: Add third-party packages
-        run: |
-          cd source
+  - name: Add third-party packages
+    run: |
+      cd source
 
-          # Argon (lock to 2.3.x)
-          rm -rf package/luci-theme-argon package/luci-app-argon-config
-          git clone --depth=1 --branch v2.3.1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
-          git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
+      # Argon Theme
+      rm -rf package/luci-theme-argon package/luci-app-argon-config
+      git clone --depth=1 --branch v2.3.1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+      git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 
-          # Passwall + dependencies
-          rm -rf package/passwall package/passwall-packages
-          git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall.git package/passwall
-          git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall-packages.git package/passwall-packages
+      # Passwall
+      rm -rf package/passwall package/passwall-packages
+      git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall.git package/passwall
+      git clone --depth=1 https://github.com/OpenWrt-Passwall/openwrt-passwall-packages.git package/passwall-packages
 
-      - name: Apply custom passwall subscribe.lua (optional)
-        run: |
-          cd source
-          if [ -f ../custom/subscribe.lua ]; then
-            if [ -f package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua ]; then
-              cp -f ../custom/subscribe.lua package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua
-              echo "[OK] custom subscribe.lua applied"
-            else
-              echo "[WARN] target subscribe.lua not found in package/passwall"
-            fi
-          else
-            echo "[INFO] custom/subscribe.lua not found, skip"
-          fi
+  - name: Load config
+    run: |
+      test -f configs/newifi.config || (echo "configs/newifi.config not found" && exit 1)
+      cp configs/newifi.config source/.config
+      if [ -d files ]; then cp -r files source/files; fi
 
-      - name: Load config
-        run: |
-          test -f configs/newifi.config || (echo "configs/newifi.config not found" && exit 1)
-          cp configs/newifi.config source/.config
-          if [ -d files ]; then cp -r files source/files; fi
+  # 🔥 核心修复在这里
+  - name: Make defconfig (fix dnsmasq conflict)
+    run: |
+      cd source
 
-      - name: Make defconfig
-        run: |
-          cd source
-          make defconfig
-          grep -E "CONFIG_TARGET_ramips|CONFIG_TARGET_ramips_mt7621|d-team_newifi-d2" .config || true
+      # 删除可能存在的冲突配置
+      sed -i '/CONFIG_PACKAGE_dnsmasq=/d' .config
+      sed -i '/CONFIG_PACKAGE_dnsmasq-full=/d' .config
 
-      - name: Download packages
-        run: |
-          cd source
-          make download -j8
+      # 强制指定 dnsmasq-full
+      cat >> .config <<'EOF'
+```
 
-      - name: Build firmware
-        run: |
-          cd source
-          make -j"$(nproc)" || make -j1 V=s
+# CONFIG_PACKAGE_dnsmasq is not set
 
-      - name: Prepare artifact
-        run: |
-          mkdir -p artifact
-          cp -r source/bin/targets artifact/targets
-          cp source/.config artifact/build.config || true
-          echo "done"
+CONFIG_PACKAGE_dnsmasq-full=y
+EOF
 
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: newifi-d2-openwrt
-          path: artifact
-          if-no-files-found: error
+```
+      make defconfig
+
+      # 验证
+      grep -E "dnsmasq" .config || true
+
+  - name: Download packages
+    run: |
+      cd source
+      make download -j8
+
+  - name: Build firmware
+    run: |
+      cd source
+      make -j"$(nproc)" || make -j1 V=s
+
+  - name: Prepare artifact
+    run: |
+      mkdir -p artifact
+      cp -r source/bin/targets artifact/targets
+      cp source/.config artifact/build.config || true
+      echo "done"
+
+  - name: Upload firmware artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: newifi-d2-openwrt
+      path: artifact
+      if-no-files-found: error
+```
