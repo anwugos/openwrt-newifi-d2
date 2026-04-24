@@ -38,14 +38,12 @@ jobs:
         run: |
           cd source
 
-          # Passwall 官方依赖包
           echo 'src-git passwall_packages https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git;main' >> feeds.conf.default
+          echo 'src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main' >> feeds.conf.default
 
-          # Argon 主题
           echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git' >> feeds.conf.default
           echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config.git' >> feeds.conf.default
 
-          echo "===== feeds.conf.default ====="
           cat feeds.conf.default
 
       - name: Update feeds
@@ -53,20 +51,6 @@ jobs:
           cd source
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-
-      - name: Use my custom luci-app-passwall
-        run: |
-          cd source
-
-          # 只使用你自己仓库里的 luci-app-passwall，不使用里面的旧核心包
-          git clone https://github.com/anwugos/openwrt-passwall.git custom_passwall
-
-          mkdir -p package/custom
-          rm -rf package/custom/luci-app-passwall
-          cp -r custom_passwall/luci-app-passwall package/custom/luci-app-passwall
-
-          echo "===== custom luci-app-passwall loaded ====="
-          ls -lah package/custom/luci-app-passwall
 
       - name: Load config
         run: |
