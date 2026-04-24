@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   OPENWRT_REPO: https://github.com/openwrt/openwrt.git
   OPENWRT_BRANCH: openwrt-24.10
 
@@ -13,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free disk space
         run: |
@@ -49,7 +50,7 @@ jobs:
         run: |
           cd source
 
-          # Argon (lock theme to v2.3.1)
+          # Argon (lock to 2.3.x)
           rm -rf package/luci-theme-argon package/luci-app-argon-config
           git clone --depth=1 --branch v2.3.1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
           git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
@@ -62,7 +63,6 @@ jobs:
       - name: Apply custom passwall subscribe.lua (optional)
         run: |
           cd source
-          # 若仓库存在 custom/subscribe.lua，则自动覆盖 passwall 订阅脚本
           if [ -f ../custom/subscribe.lua ]; then
             if [ -f package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua ]; then
               cp -f ../custom/subscribe.lua package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua
@@ -78,14 +78,12 @@ jobs:
         run: |
           test -f configs/newifi.config || (echo "configs/newifi.config not found" && exit 1)
           cp configs/newifi.config source/.config
-          # 可选：自定义 files 目录（会打进固件）
           if [ -d files ]; then cp -r files source/files; fi
 
       - name: Make defconfig
         run: |
           cd source
           make defconfig
-          # 可选检查：确认机型目标
           grep -E "CONFIG_TARGET_ramips|CONFIG_TARGET_ramips_mt7621|d-team_newifi-d2" .config || true
 
       - name: Download packages
