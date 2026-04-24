@@ -49,9 +49,9 @@ jobs:
         run: |
           cd source
 
-          # Argon
+          # Argon (lock theme to v2.3.1)
           rm -rf package/luci-theme-argon package/luci-app-argon-config
-          git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
+          git clone --depth=1 --branch v2.3.1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
           git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 
           # Passwall + dependencies
@@ -62,7 +62,7 @@ jobs:
       - name: Apply custom passwall subscribe.lua (optional)
         run: |
           cd source
-          # 你把改好的 subscribe.lua 放在仓库 custom/subscribe.lua 时自动覆盖
+          # 若仓库存在 custom/subscribe.lua，则自动覆盖 passwall 订阅脚本
           if [ -f ../custom/subscribe.lua ]; then
             if [ -f package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua ]; then
               cp -f ../custom/subscribe.lua package/passwall/luci-app-passwall/root/usr/share/passwall/subscribe.lua
@@ -102,7 +102,6 @@ jobs:
         run: |
           mkdir -p artifact
           cp -r source/bin/targets artifact/targets
-          # 额外保留关键信息，便于回溯
           cp source/.config artifact/build.config || true
           echo "done"
 
