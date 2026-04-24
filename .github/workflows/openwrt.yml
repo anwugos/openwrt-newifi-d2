@@ -31,6 +31,15 @@ jobs:
           cd source
           git checkout openwrt-24.10
 
+      # 🔥 关键步骤：添加第三方源
+      - name: Add custom feeds
+        run: |
+          cd source
+          echo 'src-git passwall_packages https://github.com/anwugos/openwrt-passwall.git;main' >> feeds.conf.default
+          echo 'src-git passwall_luci https://github.com/Openwrt-Passwall/openwrt-passwall.git;main' >> feeds.conf.default
+          echo 'src-git argon https://github.com/jerrykuku/luci-theme-argon.git' >> feeds.conf.default
+          echo 'src-git argon_config https://github.com/jerrykuku/luci-app-argon-config.git' >> feeds.conf.default
+
       - name: Update feeds
         run: |
           cd source
